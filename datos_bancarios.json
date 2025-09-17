@@ -1,0 +1,37 @@
+{
+  "clientes": {
+    "6045c019-ca1a-4c55-b19f-e8ac10593d65": {
+      "id_cliente": "6045c019-ca1a-4c55-b19f-e8ac10593d65",
+      "nombre": "Juan P\u00e9rez",
+      "email": "juan@example.com",
+      "telefono": "+1234567890",
+      "ingresos_mensuales": 3000.0,
+      "score_crediticio": 750,
+      "fecha_registro": "2025-09-16T21:20:50.959153"
+    }
+  },
+  "prestamos": {
+    "42209a31-ebf9-446c-b5aa-e34c03079d5a": {
+      "id_prestamo": "42209a31-ebf9-446c-b5aa-e34c03079d5a",
+      "id_cliente": "6045c019-ca1a-4c55-b19f-e8ac10593d65",
+      "tipo": "PERSONAL",
+      "monto": 10000.0,
+      "tasa_interes": 12.0,
+      "plazo_meses": 24,
+      "saldo": 9500.0,
+      "estado": "DESEMBOLSADO",
+      "fecha_solicitud": "2025-09-16T21:20:50.959213",
+      "fecha_aprobacion": "2025-09-16T21:20:50.959225",
+      "fecha_desembolso": "2025-09-16T21:20:50.959231",
+      "pagos": [
+        {
+          "id_pago": "47cf5bc6-f7c8-4396-bd6d-bdbbb40f2074",
+          "id_prestamo": "42209a31-ebf9-446c-b5aa-e34c03079d5a",
+          "monto": 500.0,
+          "fecha_pago": "2025-09-01T21:20:50.959236",
+          "fecha_registro": "2025-09-16T21:20:50.959267"
+        }
+      ]
+    }
+  }
+}

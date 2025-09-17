@@ -1,0 +1,49 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  PYTHON_VERSION: '3.11'
+
+stages:
+- stage: CI
+  displayName: "Integración Continua"
+  jobs:
+  - job: BuildAndTest
+    displayName: "Compilar, probar y analizar seguridad"
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(PYTHON_VERSION)'
+        addToPath: true
+
+    - script: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+      displayName: "Instalar dependencias"
+
+    - script: |
+        python -m unittest discover -s tests
+      displayName: "Ejecutar pruebas unitarias"
+
+    - task: SonarCloudPrepare@1
+      inputs:
+        SonarCloud: 'SonarCloudConnection'
+        organization: 'TU_ORG'
+        scannerMode: 'CLI'
+        configMode: 'manual'
+        cliProjectKey: 'BancoCore'
+        cliProjectName: 'BancoCore'
+    - task: SonarCloudAnalyze@1
+    - task: SonarCloudPublish@1
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: '$(Build.SourcesDirectory)'
+        artifactName: 'BancoCorePackage'
+        publishLocation: 'Container'
+
