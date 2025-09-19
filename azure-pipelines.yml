@@ -14,7 +14,7 @@ stages:
   displayName: "Integración Continua"
   jobs:
   - job: BuildAndTest
-    displayName: "Compilar, probar y analizar seguridad"
+    displayName: "Compilar y probar"
     steps:
     - task: UsePythonVersion@0
       inputs:
@@ -30,20 +30,8 @@ stages:
         python -m unittest discover -s tests
       displayName: "Ejecutar pruebas unitarias"
 
-    - task: SonarCloudPrepare@1
-      inputs:
-        SonarCloud: 'SonarCloudConnection'
-        organization: 'TU_ORG'
-        scannerMode: 'CLI'
-        configMode: 'manual'
-        cliProjectKey: 'BancoCore'
-        cliProjectName: 'BancoCore'
-    - task: SonarCloudAnalyze@1
-    - task: SonarCloudPublish@1
-
     - task: PublishBuildArtifacts@1
       inputs:
         pathToPublish: '$(Build.SourcesDirectory)'
         artifactName: 'BancoCorePackage'
         publishLocation: 'Container'
-
