@@ -27,9 +27,21 @@ stages:
         pip install pytest-azurepipelines
       displayName: "Instalar dependencias"
 
+    # 🔹 Opción A: resultados automáticos en Azure DevOps (Tests)
     - script: |
         pytest --maxfail=5 --disable-warnings -q
-      displayName: "Ejecutar pruebas con Pytest"
+      displayName: "Ejecutar pruebas con Pytest (Azure Pipelines plugin)"
+
+    # 🔹 Opción B: generar y publicar resultados en formato XML
+    - script: |
+        pytest --maxfail=5 --disable-warnings --junitxml=test-results/results.xml
+      displayName: "Ejecutar pruebas con Pytest y exportar a XML"
+
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFiles: '**/test-results/*.xml'
+        testRunTitle: 'Resultados de Pytest'
+      condition: succeededOrFailed()
 
     - task: PublishBuildArtifacts@1
       inputs:
