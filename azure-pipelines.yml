@@ -24,11 +24,12 @@ stages:
     - script: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install pytest-azurepipelines
       displayName: "Instalar dependencias"
 
     - script: |
-        python -m unittest discover -s tests
-      displayName: "Ejecutar pruebas unitarias"
+        pytest --maxfail=5 --disable-warnings -q
+      displayName: "Ejecutar pruebas con Pytest"
 
     - task: PublishBuildArtifacts@1
       inputs:
