@@ -8,68 +8,26 @@ pool:
 
 steps:
 - script: |
-    echo "=== CONFIGURACIÓN EN MAC ==="
-    echo "Usuario: $(whoami)"
-    echo "Directorio: $(pwd)"
+    echo "=== INICIANDO PIPELINE ==="
     python3 --version
-    pip3 --version
-  displayName: 'Verificar entorno Mac'
+    pwd
+    ls -la
+  displayName: 'Verificar entorno'
 
 - script: |
-    echo "=== INSTALANDO DEPENDENCIAS ==="
     python3 -m pip install --upgrade pip
     python3 -m pip install -r requirements.txt
-    python3 -m pip install pytest pytest-cov coverage
+    python3 -m pip install pytest pytest-cov
   displayName: 'Instalar dependencias'
 
 - script: |
-    echo "=== EJECUTANDO PRUEBAS UNITARIAS ==="
     python3 -m unittest test_core_bancario -v
-  displayName: 'Pruebas unitarias (unittest)'
+  displayName: 'Ejecutar pruebas unitarias'
 
 - script: |
-    echo "=== EJECUTANDO CON PYTEST ==="
     python3 -m pytest test_core_bancario.py -v
-  displayName: 'Pruebas con pytest'
+  displayName: 'Ejecutar con pytest'
 
 - script: |
-    echo "=== CALCULANDO COBERTURA ==="
-    # FORMA CORRECTA para pytest-cov en Mac
-    python3 -m pytest \
-      --cov=core_bancario \
-      --cov-report=xml \
-      --cov-report=html \
-      --cov-report=term
-  displayName: 'Cobertura de código'
-
-- task: PublishTestResults@2
-  inputs:
-    testResultsFiles: '**/test-results/*.xml'
-    testRunTitle: 'Pruebas Banco Core'
-  displayName: 'Publicar resultados'
-  condition: succeededOrFailed()
-
-- script: |
-    echo "=== 📊 ESTADÍSTICAS ==="
-    echo ""
-    echo "✅ Pruebas ejecutadas:"
-    python3 -m pytest test_core_bancario.py --collect-only 2>/dev/null | grep "test_" | wc -l
-    echo ""
-    echo "📈 Cobertura estimada:"
-    python3 -c "
-try:
-    import coverage
-    import sys
-    cov = coverage.Coverage()
-    cov.start()
-    # Importar tu módulo para medir
-    import core_bancario
-    cov.stop()
-    cov.save()
-    result = cov.report()
-    print(f'Cobertura aproximada: {result:.1f}%')
-except Exception as e:
-    print(f'Error calculando cobertura: {e}')
-    print('Ejecuta localmente: pytest --cov=core_bancario')
-    "
-  displayName: 'Generar estadísticas'
+    python3 -m pytest --cov=core_bancario --cov-report=term
+  displayName: 'Calcular cobertura'
