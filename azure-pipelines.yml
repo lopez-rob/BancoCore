@@ -3,85 +3,76 @@ trigger:
     include:
       - main
       - develop
-  paths:
-    exclude:
-      - README.md
-      - docs/*
 
 pr:
   branches:
     include:
       - main
       - feature/*
-      - hotfix/*
 
 pool:
-  name: Default
+  name: Default 
 
 variables:
   PYTHON_VERSION: '3.11'
-  COVERAGE_FILE: 'coverage.xml'
 
 stages:
 - stage: BuildAndTest
   displayName: "Compilar y Probar"
   jobs:
-  - job: TestMultiPython
-    displayName: "Pruebas en Múltiples Versiones de Python"
-    strategy:
-      matrix:
-        Python37:
-          python.version: '3.7'
-        Python38:
-          python.version: '3.8'
-        Python39:
-          python.version: '3.9'
-        Python310:
-          python.version: '3.10'
-        Python311:
-          python.version: '3.11'
+  - job: TestPython
+    displayName: "Pruebas en Python 3.11"
     steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '$(python.version)'
-      displayName: 'Usar Python $(python.version)'
+    - script: |
+        # Verificar Python disponible
+        echo "Python versions available:"
+        python3 --version || true
+        python --version || true
+        which python3
+        which python
+      displayName: 'Verificar entorno Python'
     
     - script: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install coverage pytest-azurepipelines
+        # Usar python3 explícitamente (Mac)
+        python3 -m pip install --upgrade pip
+        python3 -m pip install -r requirements.txt
+        python3 -m pip install coverage pytest pytest-azurepipelines pylint bandit
       displayName: 'Instalar dependencias'
     
     - script: |
-        echo "Python version:"
-        python --version
-        echo ""
-        echo "Installed packages:"
-        pip list
-      displayName: 'Verificar entorno'
+        # Crear directorio para resultados
+        mkdir -p test-results
+      displayName: 'Preparar directorios'
     
     # Ejecutar pruebas unitarias tradicionales
     - script: |
-        python -m unittest discover -v
+        python3 -m unittest discover -v
       displayName: 'Ejecutar pruebas unitarias (unittest)'
     
-    # Ejecutar pruebas con pytest y cobertura
+    # Ejecutar pruebas con pytest
     - script: |
-        python -m pytest \
+        python3 -m pytest \
+          test_core_bancario.py \
           --maxfail=5 \
           --disable-warnings \
-          --junitxml=test-results/$(python.version)-junit.xml \
+          --junitxml=test-results/junit.xml \
+          -v
+      displayName: 'Ejecutar pruebas con pytest'
+    
+    # Ejecutar con cobertura
+    - script: |
+        python3 -m pytest \
+          test_core_bancario.py \
           --cov=core_bancario \
-          --cov-report=xml:coverage-$(python.version).xml \
-          --cov-report=html:htmlcov-$(python.version)
-      displayName: 'Ejecutar pruebas con cobertura (pytest)'
-      continueOnError: false
+          --cov-report=xml:coverage.xml \
+          --cov-report=html:htmlcov
+      displayName: 'Ejecutar pruebas con cobertura'
     
     # Publicar resultados de pruebas
     - task: PublishTestResults@2
       inputs:
         testResultsFiles: '**/test-results/*.xml'
-        testRunTitle: 'Pruebas Python $(python.version)'
+        testRunTitle: 'Pruebas Python 3.11'
       displayName: 'Publicar resultados de pruebas'
       condition: succeededOrFailed()
     
@@ -89,109 +80,45 @@ stages:
     - task: PublishCodeCoverageResults@1
       inputs:
         codeCoverageTool: 'cobertura'
-        summaryFileLocation: 'coverage-$(python.version).xml'
-        reportDirectory: 'htmlcov-$(python.version)'
-        failIfCoverageEmpty: false
+        summaryFileLocation: 'coverage.xml'
+        reportDirectory: 'htmlcov'
       displayName: 'Publicar reporte de cobertura'
     
-    # Guardar artefactos de cobertura
-    - task: PublishBuildArtifacts@1
-      inputs:
-        pathToPublish: 'htmlcov-$(python.version)'
-        artifactName: 'CodeCoverageReport_$(python.version)'
-      displayName: 'Guardar reporte HTML de cobertura'
-    
-    - task: PublishBuildArtifacts@1
-      inputs:
-        pathToPublish: '$(Build.SourcesDirectory)'
-        artifactName: 'SourceCode_$(python.version)'
-      displayName: 'Guardar código fuente'
-      condition: eq(variables['python.version'], '3.11')  # Solo guardar una vez
-
-  - job: QualityChecks
-    displayName: "Chequeos de Calidad"
-    dependsOn: TestMultiPython
-    condition: succeeded()
-    steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '$(PYTHON_VERSION)'
-    
+    # Análisis estático
     - script: |
-        pip install pylint bandit
-      displayName: 'Instalar herramientas de calidad'
+        echo "=== Análisis Pylint ==="
+        python3 -m pylint core_bancario.py test_core_bancario.py --exit-zero || true
+        echo ""
+        echo "=== Análisis Bandit (seguridad) ==="
+        python3 -m bandit -r . -f json -o bandit-report.json || true
+      displayName: 'Análisis de calidad'
     
-    # Análisis estático de código con pylint
-    - script: |
-        echo "Análisis Pylint:"
-        pylint core_bancario.py test_core_bancario.py --exit-zero || true
-      displayName: 'Análisis estático (Pylint)'
-    
-    # Seguridad con bandit
-    - script: |
-        echo "Análisis de seguridad Bandit:"
-        bandit -r . -f json -o bandit-report.json || true
-      displayName: 'Análisis de seguridad (Bandit)'
-    
-    # Contar líneas de código y pruebas
+    # Estadísticas del proyecto
     - script: |
         echo "=== Estadísticas del Proyecto ==="
         echo ""
-        echo "Líneas de código (core_bancario.py):"
+        echo "📊 Líneas de código:"
         wc -l core_bancario.py
         echo ""
-        echo "Líneas de pruebas (test_core_bancario.py):"
+        echo "🧪 Líneas de pruebas:"
         wc -l test_core_bancario.py
         echo ""
-        echo "Cantidad de pruebas:"
-        python -m pytest --collect-only | grep "test_" | wc -l
-      displayName: 'Estadísticas del proyecto'
-
-- stage: DeployDocs
-  displayName: "Desplegar Documentación"
-  dependsOn: BuildAndTest
-  condition: succeeded()
-  jobs:
-  - job: GenerateDocs
-    displayName: "Generar Documentación"
-    steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '$(PYTHON_VERSION)'
+        echo "✅ Cantidad total de pruebas:"
+        python3 -m pytest test_core_bancario.py --collect-only | grep "test_" | wc -l
+        echo ""
+        echo "🐍 Versión Python:"
+        python3 --version
+      displayName: 'Generar estadísticas'
     
-    - script: |
-        # Crear README simplificado si no existe
-        if [ ! -f README.md ]; then
-          echo "# Sistema Bancario Core - Pruebas Automatizadas" > README.md
-          echo "" >> README.md
-          echo "## Descripción" >> README.md
-          echo "Sistema de gestión de préstamos con pruebas automatizadas en Azure DevOps." >> README.md
-          echo "" >> README.md
-          echo "## Pruebas" >> README.md
-          echo "- Total pruebas: 24" >> README.md
-          echo "- Cobertura objetivo: >85%" >> README.md
-          echo "- Versiones Python: 3.7, 3.8, 3.9, 3.10, 3.11" >> README.md
-        fi
-        
-        # Crear resumen de pruebas
-        python -c "
-        import json
-        import xml.etree.ElementTree as ET
-        try:
-            tree = ET.parse('test-results/3.11-junit.xml')
-            root = tree.getroot()
-            tests = int(root.attrib.get('tests', 0))
-            failures = int(root.attrib.get('failures', 0))
-            print(f'✓ Pruebas ejecutadas: {tests}')
-            print(f'✓ Fallos: {failures}')
-            print(f'✓ Tasa de éxito: {(tests-failures)/tests*100:.1f}%' if tests > 0 else '✓ Tasa de éxito: N/A')
-        except:
-            print('✓ Información de pruebas no disponible')
-        "
-      displayName: 'Generar documentación'
+    # Guardar artefactos
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: 'htmlcov'
+        artifactName: 'CodeCoverageReport'
+      displayName: 'Guardar reporte de cobertura HTML'
     
     - task: PublishBuildArtifacts@1
       inputs:
         pathToPublish: '$(Build.SourcesDirectory)'
-        artifactName: 'Documentation'
-      displayName: 'Publicar documentación'
+        artifactName: 'SourceCode'
+      displayName: 'Guardar código fuente'
