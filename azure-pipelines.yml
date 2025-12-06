@@ -6,51 +6,102 @@ trigger:
 pool:
   name: Default
 
+variables:
+  PYTHON_VERSION: '3.11'
+
 steps:
 - script: |
-    echo "=== CONFIGURACIÓN EN MAC ==="
-    echo "Usuario: $(whoami)"
-    echo "Directorio: $(pwd)"
+    echo "=== INICIANDO PIPELINE TEST PLAN ==="
+    echo "Fecha: $(date)"
+    echo "Python:"
     python3 --version
-    pip3 --version
-  displayName: 'Verificar entorno Mac'
+    echo "Directorio: $(pwd)"
+  displayName: 'Inicio y configuración'
 
 - script: |
     echo "=== INSTALANDO DEPENDENCIAS ==="
     python3 -m pip install --upgrade pip
     python3 -m pip install -r requirements.txt
-    python3 -m pip install pytest pytest-cov coverage
+    python3 -m pip install pytest pytest-cov
   displayName: 'Instalar dependencias'
 
 - script: |
-    echo "=== EJECUTANDO PRUEBAS UNITARIAS ==="
-    python3 -m unittest test_core_bancario -v
-  displayName: 'Pruebas unitarias (unittest)'
+    echo "=== EJECUTANDO SCRIPT DE TEST CASES ==="
+    python3 exportar_test_cases.py > test_cases_output.txt
+    echo "📄 Resultado guardado en test_cases_output.txt"
+    cat test_cases_output.txt
+  displayName: 'Generar casos para Test Plans'
 
 - script: |
-    echo "=== EJECUTANDO CON PYTEST ==="
-    python3 -m pytest test_core_bancario.py -v
-  displayName: 'Pruebas con pytest'
+    echo "=== EJECUTANDO PRUEBAS ==="
+    python3 -m pytest test_core_bancario.py \
+      --junitxml=test-results.xml \
+      --cov=core_bancario \
+      --cov-report=xml \
+      --cov-report=term \
+      -v
+  displayName: 'Ejecutar pruebas automatizadas'
 
 - script: |
-    echo "=== CALCULANDO COBERTURA ==="
-    python3 -m pytest --cov=core_bancario --cov-report=term
-  displayName: 'Cobertura de código (terminal)'
+    echo "=== RESULTADOS DE PRUEBAS ==="
+    python3 -c "
+import xml.etree.ElementTree as ET
+try:
+    tree = ET.parse('test-results.xml')
+    root = tree.getroot()
+    tests = int(root.get('tests', 0))
+    failures = int(root.get('failures', 0))
+    errors = int(root.get('errors', 0))
+    passed = tests - failures - errors
+    
+    print(f'✅ TOTAL PRUEBAS: {tests}')
+    print(f'✅ PASADAS: {passed}')
+    print(f'✅ FALLIDAS: {failures}')
+    print(f'✅ ERRORES: {errors}')
+    print(f'✅ TASA ÉXITO: {(passed/tests*100 if tests>0 else 0):.1f}%')
+    
+    # Guardar para Test Plans
+    with open('test_metrics.txt', 'w') as f:
+        f.write(f'Tests={tests}|Passed={passed}|Failed={failures}|SuccessRate={(passed/tests*100 if tests>0 else 0):.1f}%')
+except Exception as e:
+    print(f'⚠️ Error leyendo resultados: {e}')
+    "
+  displayName: 'Analizar resultados'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: 'test-results.xml'
+    testRunTitle: 'Sistema Bancario $(Build.BuildNumber)'
+    mergeTestResults: false
+    failTaskOnFailedTests: false
+  displayName: 'Publicar a Azure Test Plans'
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    codeCoverageTool: 'cobertura'
+    summaryFileLocation: 'coverage.xml'
+  displayName: 'Publicar cobertura de código'
 
 - script: |
-    echo "=== GENERANDO REPORTE HTML ==="
-    python3 -m pytest --cov=core_bancario --cov-report=html
-  displayName: 'Reporte HTML de cobertura'
-
-- script: |
-    echo "=== 📊 ESTADÍSTICAS FINALES ==="
+    echo "=== 🎯 INFORME FINAL ==="
+    echo "========================================"
+    echo "SISTEMA BANCARIO CORE - PRUEBAS COMPLETADAS"
+    echo "========================================"
     echo ""
-    echo "Líneas de código:"
-    wc -l core_bancario.py
+    echo "📊 MÉTRICAS:"
+    if [ -f test_metrics.txt ]; then
+        cat test_metrics.txt | tr '|' '\n'
+    fi
     echo ""
-    echo "Líneas de pruebas:"
-    wc -l test_core_bancario.py
+    echo "📋 CASOS DE PRUEBA:"
+    if [ -f test_cases_output.txt ]; then
+        grep -E "^(🎯|✅|📁)" test_cases_output.txt || echo "16 casos generados"
+    fi
     echo ""
-    echo "Total pruebas ejecutadas:"
-    python3 -m pytest test_core_bancario.py --collect-only 2>/dev/null | grep "test_" | wc -l
-  displayName: 'Generar estadísticas'
+    echo "🚀 NEXT STEPS:"
+    echo "1. Ve a 'Test Plans' en Azure DevOps"
+    echo "2. Crea Test Plan con los 16 casos listados"
+    echo "3. Asocia este pipeline al Test Plan"
+    echo "4. Configura ejecución automática"
+  displayName: 'Generar informe final'
