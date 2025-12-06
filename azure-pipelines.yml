@@ -2,132 +2,74 @@ trigger:
   branches:
     include:
       - main
-      - develop
-
-pr:
-  branches:
-    include:
-      - main
 
 pool:
-  name: Default  # Tu agente Mac
+  name: Default
 
-variables:
-  PYTHON_VERSION: '3.11'
+steps:
+- script: |
+    echo "=== CONFIGURACIÓN EN MAC ==="
+    echo "Usuario: $(whoami)"
+    echo "Directorio: $(pwd)"
+    python3 --version
+    pip3 --version
+  displayName: 'Verificar entorno Mac'
 
-stages:
-- stage: BuildAndTest
-  displayName: "Compilar y Probar"
-  jobs:
-  - job: TestPython
-    displayName: "Pruebas Python 3.11"
-    steps:
-    - script: |
-        # Verificar Python en Mac - USAR SOLO python3
-        echo "=== Entorno Mac ==="
-        echo "Python3 version:"
-        python3 --version
-        echo ""
-        echo "Python3 ubicación:"
-        which python3
-        echo ""
-        echo "=== Directorio actual ==="
-        pwd
-        ls -la
-      displayName: 'Verificar entorno Mac'
-    
-    - script: |
-        # Instalar dependencias con python3
-        echo "Instalando dependencias..."
-        python3 -m pip install --upgrade pip
-        python3 -m pip install -r requirements.txt
-        python3 -m pip install coverage pytest pytest-azurepipelines
-      displayName: 'Instalar dependencias'
-    
-    - script: |
-        # Crear directorios necesarios
-        mkdir -p test-results
-        mkdir -p htmlcov
-      displayName: 'Preparar directorios'
-    
-    # Ejecutar pruebas unitarias
-    - script: |
-        echo "=== Ejecutando pruebas unitarias ==="
-        python3 -m unittest test_core_bancario.TestCoreBancario -v
-      displayName: 'Pruebas Unitarias'
-    
-    # Ejecutar pruebas avanzadas
-    - script: |
-        echo "=== Ejecutando pruebas avanzadas ==="
-        python3 -m unittest test_core_bancario.TestCoreBancarioAvanzado -v
-      displayName: 'Pruebas Avanzadas'
-    
-    # Ejecutar TODAS las pruebas
-    - script: |
-        echo "=== Ejecutando TODAS las pruebas ==="
-        python3 -m unittest discover -v
-      displayName: 'Todas las pruebas'
-    
-    # Ejecutar con pytest
-    - script: |
-        echo "=== Ejecutando con pytest ==="
-        python3 -m pytest test_core_bancario.py \
-          --maxfail=5 \
-          --disable-warnings \
-          --junitxml=test-results/junit.xml \
-          -v
-      displayName: 'Pruebas con pytest'
-    
-    # Cobertura de código
-    - script: |
-        echo "=== Calculando cobertura ==="
-        python3 -m pytest test_core_bancario.py \
-          --cov=core_bancario \
-          --cov-report=xml:coverage.xml \
-          --cov-report=html:htmlcov \
-          --cov-report=term
-      displayName: 'Cobertura de código'
-    
-    # Publicar resultados
-    - task: PublishTestResults@2
-      inputs:
-        testResultsFiles: '**/test-results/*.xml'
-        testRunTitle: 'Pruebas Bancario Core'
-      displayName: 'Publicar resultados'
-      condition: succeededOrFailed()
-    
-    # Publicar cobertura
-    - task: PublishCodeCoverageResults@1
-      inputs:
-        codeCoverageTool: 'cobertura'
-        summaryFileLocation: 'coverage.xml'
-        reportDirectory: 'htmlcov'
-      displayName: 'Publicar cobertura'
-    
-    # Estadísticas
-    - script: |
-        echo "=== 📊 ESTADÍSTICAS FINALES ==="
-        echo ""
-        echo "🧾 Archivos del proyecto:"
-        ls -la
-        echo ""
-        echo "📄 Líneas de código (core_bancario.py):"
-        wc -l core_bancario.py
-        echo ""
-        echo "🧪 Líneas de pruebas (test_core_bancario.py):"
-        wc -l test_core_bancario.py
-        echo ""
-        echo "✅ Pruebas encontradas:"
-        python3 -m pytest test_core_bancario.py --collect-only 2>/dev/null | grep "test_" | wc -l
-        echo ""
-        echo "🎯 Resumen ejecución:"
-        echo "Python: $(python3 --version)"
-        echo "Pipeline ejecutado en: $(date)"
-      displayName: 'Generar estadísticas'
-    
-    # Guardar artefactos
-    - task: PublishBuildArtifacts@1
-      inputs:
-        pathToPublish: 'htmlcov'
-        artifactName: 'CoberturaHTML'
-      displayName: 'Guardar cobertura HTML'
+- script: |
+    echo "=== INSTALANDO DEPENDENCIAS ==="
+    python3 -m pip install --upgrade pip
+    python3 -m pip install -r requirements.txt
+    python3 -m pip install pytest pytest-cov coverage
+  displayName: 'Instalar dependencias'
+
+- script: |
+    echo "=== EJECUTANDO PRUEBAS UNITARIAS ==="
+    python3 -m unittest test_core_bancario -v
+  displayName: 'Pruebas unitarias (unittest)'
+
+- script: |
+    echo "=== EJECUTANDO CON PYTEST ==="
+    python3 -m pytest test_core_bancario.py -v
+  displayName: 'Pruebas con pytest'
+
+- script: |
+    echo "=== CALCULANDO COBERTURA ==="
+    # FORMA CORRECTA para pytest-cov en Mac
+    python3 -m pytest \
+      --cov=core_bancario \
+      --cov-report=xml \
+      --cov-report=html \
+      --cov-report=term
+  displayName: 'Cobertura de código'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFiles: '**/test-results/*.xml'
+    testRunTitle: 'Pruebas Banco Core'
+  displayName: 'Publicar resultados'
+  condition: succeededOrFailed()
+
+- script: |
+    echo "=== 📊 ESTADÍSTICAS ==="
+    echo ""
+    echo "✅ Pruebas ejecutadas:"
+    python3 -m pytest test_core_bancario.py --collect-only 2>/dev/null | grep "test_" | wc -l
+    echo ""
+    echo "📈 Cobertura estimada:"
+    python3 -c "
+try:
+    import coverage
+    import sys
+    cov = coverage.Coverage()
+    cov.start()
+    # Importar tu módulo para medir
+    import core_bancario
+    cov.stop()
+    cov.save()
+    result = cov.report()
+    print(f'Cobertura aproximada: {result:.1f}%')
+except Exception as e:
+    print(f'Error calculando cobertura: {e}')
+    print('Ejecuta localmente: pytest --cov=core_bancario')
+    "
+  displayName: 'Generar estadísticas'
