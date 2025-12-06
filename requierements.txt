@@ -2,3 +2,5 @@ requests
 numpy
 pytest
 pytest-azurepipelines
+pytest-cov
+coverage
