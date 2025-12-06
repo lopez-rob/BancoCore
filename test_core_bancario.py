@@ -171,5 +171,61 @@ class TestCoreBancario(unittest.TestCase):
         self.assertLess(cuota, 10000.0)
 
 
+class TestCoreBancarioAvanzado(unittest.TestCase):
+    def test_pago_completo_cambia_estado_a_pagado(self):
+        core = CoreBancario()
+        id_cliente = core.registrar_cliente("Test", "test@test.com", "123", 10000, 800)
+        id_prestamo = core.solicitar_prestamo(id_cliente, TipoPrestamo.PERSONAL, 1000, 12)
+        
+        core.aprobar_prestamo(id_prestamo)
+        core.desembolsar_prestamo(id_prestamo)
+        
+        # Pago completo
+        core.registrar_pago(id_prestamo, 1000, datetime.now())
+        
+        prestamo = core.prestamos[id_prestamo]
+        self.assertEqual(prestamo.estado, EstadoPrestamo.PAGADO)
+    
+    def test_rechazar_prestamo(self):
+        core = CoreBancario()
+        id_cliente = core.registrar_cliente("Test", "test@test.com", "123", 10000, 800)
+        id_prestamo = core.solicitar_prestamo(id_cliente, TipoPrestamo.PERSONAL, 1000, 12)
+        
+        resultado = core.rechazar_prestamo(id_prestamo)
+        self.assertTrue(resultado)
+        self.assertEqual(core.prestamos[id_prestamo].estado, EstadoPrestamo.RECHAZADO)
+
+    def test_capacidad_pago_limite_40_porciento(self):
+        """El sistema debe rechazar préstamos donde la cuota excede el 40% de ingresos"""
+        core = CoreBancario()
+        id_cliente = core.registrar_cliente("Test", "test@test.com", "123", 1000, 800)
+        
+        # Intenta pedir préstamo con cuota que excede el 40% de 1000 = 400
+        id_prestamo = core.solicitar_prestamo(id_cliente, TipoPrestamo.PERSONAL, 10000, 12)
+        self.assertIsNone(id_prestamo)  # Debería ser rechazado
+
+    def test_multiples_clientes_y_prestamos(self):
+        """Prueba de rendimiento con múltiples operaciones"""
+        core = CoreBancario()
+        
+        ids_clientes = []
+        for i in range(10):
+            id_cliente = core.registrar_cliente(
+                f"Cliente {i}", 
+                f"cliente{i}@test.com", 
+                f"12345678{i}", 
+                3000 + i*500, 
+                650 + i*15
+            )
+            ids_clientes.append(id_cliente)
+        
+        # Cada cliente solicita 2 préstamos
+        for id_cliente in ids_clientes:
+            for j in range(2):
+                core.solicitar_prestamo(id_cliente, TipoPrestamo.PERSONAL, 5000 + j*2000, 24)
+        
+        self.assertEqual(len(core.prestamos), 20)
+
+
 if __name__ == "__main__":
     unittest.main()
