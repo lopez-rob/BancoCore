@@ -1,0 +1,36 @@
+trigger:
+- main
+
+pool:
+  name: Default
+
+steps:
+- script: |
+    echo "=== INICIANDO PIPELINE TEST PLAN ==="
+    python3 --version
+    echo "Directorio: $(pwd)"
+  displayName: '1. Inicio pipeline'
+
+- script: |
+    echo "=== INSTALANDO DEPENDENCIAS ==="
+    python3 -m pip install --upgrade pip
+    python3 -m pip install pytest pytest-cov
+  displayName: '2. Instalar dependencias'
+
+- script: |
+    echo "=== EJECUTANDO PRUEBAS ==="
+    python3 -m pytest test_core_bancario.py --junitxml=test-results.xml -v
+  displayName: '3. Ejecutar pruebas'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: 'test-results.xml'
+    testRunTitle: 'Pruebas Sistema Bancario'
+  displayName: '4. Publicar a Test Plans'
+
+- script: |
+    echo "=== ✅ PIPELINE COMPLETADO ==="
+    echo "Resultados publicados en Azure Test Plans"
+    echo "Revisa en: Test Plans → Runs"
+  displayName: '5. Finalizado'
