@@ -23,12 +23,14 @@ jobs:
         run: |
           enabled=true
           host="$(echo "${SONAR_HOST_URL}" | sed -E 's#^https?://([^@/]*@)?([^/:]+).*#\2#')"
+          host="${host#[}"
+          host="${host%]}"
 
           if [ -z "${SONAR_TOKEN}" ] || [ -z "${SONAR_HOST_URL}" ]; then
             enabled=false
           else
             case "${host}" in
-              localhost|0.0.0.0|\[::1\]|::1|127.*)
+              localhost|0.0.0.0|::1|127.[0-9]*.[0-9]*.[0-9]*)
                 enabled=false
                 ;;
             esac
