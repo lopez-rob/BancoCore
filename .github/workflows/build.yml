@@ -15,18 +15,19 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Validate SonarQube host
+        id: validate_sonar_host
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          if [ -n "${SONAR_TOKEN}" ] && [ -n "${SONAR_HOST_URL}" ] && ! echo "${SONAR_HOST_URL}" | grep -Eq '^https?://(localhost|0\.0\.0\.0|\[::1\]|127\.)'; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
-        if: >
-          ${{
-            secrets.SONAR_TOKEN != '' &&
-            secrets.SONAR_HOST_URL != '' &&
-            !contains(secrets.SONAR_HOST_URL, 'localhost') &&
-            !startsWith(secrets.SONAR_HOST_URL, 'http://127.') &&
-            !startsWith(secrets.SONAR_HOST_URL, 'https://127.') &&
-            !startsWith(secrets.SONAR_HOST_URL, 'http://0.0.0.0') &&
-            !startsWith(secrets.SONAR_HOST_URL, 'https://0.0.0.0') &&
-            !contains(secrets.SONAR_HOST_URL, '[::1]')
-          }}
+        if: ${{ steps.validate_sonar_host.outputs.enabled == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
