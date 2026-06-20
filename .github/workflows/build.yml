@@ -21,11 +21,18 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
-          if [ -n "${SONAR_TOKEN}" ] && [ -n "${SONAR_HOST_URL}" ] && ! echo "${SONAR_HOST_URL}" | grep -Eq '^https?://(localhost|0\.0\.0\.0|\[::1\]|127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})'; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          enabled=true
+          host="$(echo "${SONAR_HOST_URL}" | sed -E 's#^https?://([^/:]+).*#\1#')"
+
+          if [ -z "${SONAR_TOKEN}" ] || [ -z "${SONAR_HOST_URL}" ]; then
+            enabled=false
+          elif [ "${host}" = "localhost" ] || [ "${host}" = "0.0.0.0" ] || [ "${host}" = "[::1]" ] || [ "${host}" = "::1" ]; then
+            enabled=false
+          elif echo "${host}" | grep -Eq '^127\.'; then
+            enabled=false
           fi
+
+          echo "enabled=${enabled}" >> "$GITHUB_OUTPUT"
       - uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
         if: ${{ steps.validate_sonar_host.outputs.enabled == 'true' }}
         env:
