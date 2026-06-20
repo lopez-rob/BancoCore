@@ -21,17 +21,29 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
-          if [ -z "${SONAR_TOKEN}" ] || [ -z "${SONAR_HOST_URL}" ]; then
-            echo "enabled=false" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
+          python - <<'PY' >> "${GITHUB_OUTPUT}"
+          import ipaddress
+          import os
+          from urllib.parse import urlparse
 
-          HOST_URL_LOWER="$(printf '%s' "${SONAR_HOST_URL}" | tr '[:upper:]' '[:lower:]')"
-          if echo "${HOST_URL_LOWER}" | grep -Eq '(^|://)localhost([:/]|$)|(^|://)127\.[0-9]+\.[0-9]+\.[0-9]+([:/]|$)'; then
-            echo "enabled=false" >> "${GITHUB_OUTPUT}"
-          else
-            echo "enabled=true" >> "${GITHUB_OUTPUT}"
-          fi
+          token = os.environ.get("SONAR_TOKEN", "").strip()
+          host_url = os.environ.get("SONAR_HOST_URL", "").strip()
+          enabled = bool(token and host_url)
+
+          if enabled:
+              normalized_url = host_url if "://" in host_url else f"http://{host_url}"
+              host = (urlparse(normalized_url).hostname or "").lower()
+              if host == "localhost":
+                  enabled = False
+              else:
+                  try:
+                      if ipaddress.ip_address(host).is_loopback:
+                          enabled = False
+                  except ValueError:
+                      pass
+
+          print(f"enabled={'true' if enabled else 'false'}")
+          PY
       - uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
         if: ${{ steps.sonar-config.outputs.enabled == 'true' }}
         env:
@@ -39,7 +51,7 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       - name: Skip SonarQube scan when host is unreachable in CI
         if: ${{ steps.sonar-config.outputs.enabled != 'true' }}
-        run: echo "Skipping SonarQube scan because SONAR_TOKEN or SONAR_HOST_URL is missing, or SONAR_HOST_URL points to localhost/127.0.0.1."
+        run: echo "Skipping SonarQube scan because SONAR_TOKEN or SONAR_HOST_URL is missing, or SONAR_HOST_URL points to localhost/127.x.x.x loopback."
       # If you wish to fail your job when the Quality Gate is red, uncomment the
       # following lines. This would typically be used to fail a deployment.
       # - uses: SonarSource/sonarqube-quality-gate-action@cf038b0e0cdecfa9e56c198bbb7d21d751d62c3b # v1.2.0
