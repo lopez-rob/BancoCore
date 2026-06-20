@@ -22,14 +22,16 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
           enabled=true
-          host="$(echo "${SONAR_HOST_URL}" | sed -E 's#^https?://([^/:]+).*#\1#')"
+          host="$(echo "${SONAR_HOST_URL}" | sed -E 's#^https?://([^@/]*@)?([^/:]+).*#\2#')"
 
           if [ -z "${SONAR_TOKEN}" ] || [ -z "${SONAR_HOST_URL}" ]; then
             enabled=false
-          elif [ "${host}" = "localhost" ] || [ "${host}" = "0.0.0.0" ] || [ "${host}" = "[::1]" ] || [ "${host}" = "::1" ]; then
-            enabled=false
-          elif echo "${host}" | grep -Eq '^127\.'; then
-            enabled=false
+          else
+            case "${host}" in
+              localhost|0.0.0.0|"[::1]"|"::1"|127.*)
+                enabled=false
+                ;;
+            esac
           fi
 
           echo "enabled=${enabled}" >> "$GITHUB_OUTPUT"
