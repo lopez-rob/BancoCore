@@ -21,10 +21,11 @@ jobs:
             secrets.SONAR_TOKEN != '' &&
             secrets.SONAR_HOST_URL != '' &&
             !contains(secrets.SONAR_HOST_URL, 'localhost') &&
-            !contains(secrets.SONAR_HOST_URL, '127.') &&
-            !contains(secrets.SONAR_HOST_URL, '0.0.0.0') &&
-            !contains(secrets.SONAR_HOST_URL, '[::1]') &&
-            !contains(secrets.SONAR_HOST_URL, '::1')
+            !startsWith(secrets.SONAR_HOST_URL, 'http://127.') &&
+            !startsWith(secrets.SONAR_HOST_URL, 'https://127.') &&
+            !startsWith(secrets.SONAR_HOST_URL, 'http://0.0.0.0') &&
+            !startsWith(secrets.SONAR_HOST_URL, 'https://0.0.0.0') &&
+            !contains(secrets.SONAR_HOST_URL, '[::1]')
           }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
